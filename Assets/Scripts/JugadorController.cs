@@ -3,19 +3,32 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+
+
 
 public class JugadorController : MonoBehaviour
 {
 
     private Rigidbody rb;
-    private Vector3 movimiento;
+    private Vector2 input;
+    private Vector3 direction;
+    private CharacterController characterController;
     private int contador = 0;
 
-    public float velocidad;
+    private float gravity = -9.81f;
+    [SerializeField] private float gravityMultiplier = 3.0f;
+    [SerializeField] private float velocidad;
+    [SerializeField] private float jumpPower;
+    private float caida;
+
     public TextMeshProUGUI textoContador, textoGanar;
 
-
+    private void Awake()
+    {
+        characterController = GetComponent<CharacterController>();
+    }
 
     // Use this for initialization
     void Start()
@@ -32,26 +45,45 @@ public class JugadorController : MonoBehaviour
 
     private void Update()
     {
-
-        //Asigno ese movimiento o desplazamiento a mi Rigidbody, multiplicado por la velocidad que quiera darle
-        rb.AddForce(movimiento * velocidad);
+        ApplyGravity();
+        ApplyMovement();
     }
 
-    // Para que se sincronice con los frames de física del motor
-    void FixedUpdate()
+    private void ApplyMovement()
+    {
+        characterController.Move(direction * velocidad * Time.deltaTime);
+    }
+
+    private void ApplyGravity()
     {
 
-        //Estas variables nos capturan el movimiento en horizontal y vertical de nuestro teclado
-        float movimientoH = Input.GetAxis("Horizontal");
-        float movimientoV = Input.GetAxis("Vertical");
+        if (IsGrounded() && caida < 0.0f)
+        {
+            caida = -1.0f;
+        }
+        else
+        {
+            caida = gravity * gravityMultiplier * Time.deltaTime;
+        }
 
-        //Un vector 3 es un trío de posiciones en el espacio XYZ, en este caso el que corresponde al movimiento
-        movimiento = new Vector3(movimientoH, 0.0f, movimientoV);
-
-        //Asigno ese movimiento o desplazamiento a mi RigidBody
-        rb.AddForce(movimiento);
-
+        direction.y = caida;
     }
+
+    public void Move(InputAction.CallbackContext context) 
+    {
+        input = context.ReadValue<Vector2>();
+        direction = new Vector3(input.x, 0.0f, input.y);
+    }
+  
+    public void Jump(InputAction.CallbackContext context)
+    {
+        if (!context.started) { return; }
+        if (!IsGrounded()) { return; }
+
+        caida *= jumpPower;
+    }
+
+    private bool IsGrounded() => characterController.isGrounded;
 
     //Se ejecuta al entrar a un objeto con la opción isTrigger seleccionada
     void OnTriggerEnter(Collider collision)
